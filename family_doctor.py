@@ -1,5 +1,6 @@
 import os
 from selenium import webdriver
+from selenium.common.exceptions import NoSuchElementException  # Import the NoSuchElementException
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -7,6 +8,8 @@ from selenium.webdriver.support import expected_conditions as EC
 import csv
 from datetime import datetime
 
+# Define the global variable
+cityname = "Burlington"  # Replace "YourCityName" with the actual city name
 
 def save_to_csv(data):
     # Create the 'data' folder if it doesn't exist
@@ -17,7 +20,7 @@ def save_to_csv(data):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     # Create the CSV file path
-    csv_file_path = os.path.join(data_folder, f"Oakville_{timestamp}.csv")
+    csv_file_path = os.path.join(data_folder, f"{cityname}_{timestamp}.csv")
 
     # Write data to the CSV file
     with open(csv_file_path, mode='w', newline='', encoding='utf-8') as file:
@@ -30,7 +33,7 @@ def save_to_csv(data):
     print(f"Data saved to {csv_file_path}")
 
 
-def scrape_oakville_physicians():
+def scrape_city_physicians():
     chrome_options = webdriver.ChromeOptions()
     chrome_options.add_argument('--headless')  # Uncomment this line if you don't want the browser to be visible
 
@@ -42,22 +45,30 @@ def scrape_oakville_physicians():
             url = "https://www.halton.ca/For-Residents/Public-Health/Halton-Physicians-Accepting-New-Patients"
             driver.get(url)
 
-            print("Waiting for the Oakville tab to be clickable...")
-            # Change to wait for the presence of h2 with text 'Oakville'
-            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, '//h2[text()="Oakville"]')))
+            print(f"Waiting for the {cityname} tab to be clickable...")
+            # Change to wait for the presence of h2 with text corresponding to the city name
+            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, f'//h2[text()="{cityname}"]')))
 
             print("Extracting data from the list items...")
             data = []
-            items = driver.find_elements(By.XPATH, '//h2[text()="Oakville"]/following-sibling::ul/li')
+            items = driver.find_elements(By.XPATH, f'//h2[text()="{cityname}"]/following-sibling::ul/li')
             for item in items:
                 name_element = item.find_element(By.XPATH, './/strong')
                 name = name_element.get_attribute('innerText').strip() if name_element else ""
                 print(f"Name: {name}")
 
                 address_element = item.find_element(By.XPATH, './/ul/li[contains(text(), "Address")]/a')
-                address = address_element.get_attribute('innerText').replace('(GoogleMaps link)',
-                                                                             '').strip() if address_element else ""
+                address = address_element.get_attribute('innerText').replace('(Google Maps link)', '').replace(
+                    '(GoogleMaps link)', '').strip() if address_element else ""
+
                 print(f"Address: {address}")
+
+                # Check for the presence of the "Website" attribute and skip it
+                try:
+                    website_element = item.find_element(By.XPATH, './/ul/li[contains(text(), "Website")]/a')
+                    continue  # Skip the iteration if the "Website" attribute is present
+                except NoSuchElementException:
+                    pass  # Continue with the rest of the code if the "Website" attribute is not present
 
                 phone_element = item.find_element(By.XPATH, './/ul/li[contains(text(), "Phone")]/a')
                 phone = phone_element.get_attribute('innerText').strip() if phone_element else ""
@@ -82,4 +93,4 @@ def scrape_oakville_physicians():
 
 
 if __name__ == "__main__":
-    scrape_oakville_physicians()
+    scrape_city_physicians()
